@@ -8,8 +8,11 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import java.io.File;
 import com.example.myspot.R;
 import com.example.myspot.model.Spot;
 import com.example.myspot.repository.SpotRepository;
@@ -20,7 +23,7 @@ import android.graphics.Bitmap;
 
 public class SpotDetailActivity extends AppCompatActivity {
     private TextView tvSpotTitle, tvSpotCategory, tvSpotDate, tvJournal;
-    private Button btnNavigate, btnShare;
+    private Button btnNavigate, btnShare, btnDelete;
     private WebView wvMap;
     
     private SpotRepository spotRepository;
@@ -67,6 +70,7 @@ public class SpotDetailActivity extends AppCompatActivity {
         tvJournal = findViewById(R.id.tvJournal);
         btnNavigate = findViewById(R.id.btnNavigate);
         btnShare = findViewById(R.id.btnShare);
+        btnDelete = findViewById(R.id.btnDelete);
         wvMap = findViewById(R.id.wvMap);
         
         // Configure WebView safely
@@ -87,6 +91,9 @@ public class SpotDetailActivity extends AppCompatActivity {
         }
         if (btnShare != null) {
             btnShare.setOnClickListener(v -> shareSpot());
+        }
+        if (btnDelete != null) {
+            btnDelete.setOnClickListener(v -> showDeleteConfirmation());
         }
     }
     
@@ -223,6 +230,56 @@ public class SpotDetailActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+    
+    private void showDeleteConfirmation() {
+        if (currentSpot == null) {
+            return;
+        }
+        
+        new AlertDialog.Builder(this)
+            .setTitle("Delete Spot")
+            .setMessage("Are you sure you want to delete \"" + currentSpot.getTitle() + "\"? This action cannot be undone.")
+            .setPositiveButton("Delete", (dialog, which) -> deleteSpot())
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+    
+    private void deleteSpot() {
+        if (currentSpot == null) {
+            return;
+        }
+        
+        // Delete associated image file if it exists
+        if (currentSpot.getImageUri() != null && !currentSpot.getImageUri().isEmpty()) {
+            try {
+                File imageFile = new File(currentSpot.getImageUri());
+                if (imageFile.exists()) {
+                    imageFile.delete();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        // Delete spot from database
+        spotRepository.deleteSpot(currentSpot, new SpotRepository.RepositoryCallback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SpotDetailActivity.this, "Spot deleted successfully", Toast.LENGTH_SHORT).show();
+                    finish();
+                    overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
+                });
+            }
+            
+            @Override
+            public void onError(Exception error) {
+                runOnUiThread(() -> {
+                    Toast.makeText(SpotDetailActivity.this, "Error deleting spot: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
     }
     
     @Override

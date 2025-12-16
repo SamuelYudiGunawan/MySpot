@@ -122,6 +122,17 @@
 
             </LinearLayout>
 
+            <Button
+                android:id="@+id/btnDelete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp"
+                android:text="Delete Spot"
+                android:textColor="@android:color/white"
+                android:backgroundTint="@android:color/holo_red_dark"
+                style="@style/Widget.Material3.Button" />
+
         </LinearLayout>
 
     </LinearLayout>

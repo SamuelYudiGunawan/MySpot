@@ -23,11 +23,27 @@ public class ImageUtils {
      */
     public static String compressAndSaveImage(Context context, Uri imageUri) {
         try {
-            // Read the original image
-            InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
-            Bitmap originalBitmap = BitmapFactory.decodeStream(inputStream);
-            if (inputStream != null) {
-                inputStream.close();
+            if (imageUri == null) {
+                return null;
+            }
+            
+            Bitmap originalBitmap = null;
+            String scheme = imageUri.getScheme();
+            
+            // Handle different URI schemes
+            if (scheme != null && scheme.equals("file")) {
+                // File URI - read directly from file path
+                String filePath = imageUri.getPath();
+                if (filePath != null) {
+                    originalBitmap = BitmapFactory.decodeFile(filePath);
+                }
+            } else {
+                // Content URI - use ContentResolver
+                InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
+                originalBitmap = BitmapFactory.decodeStream(inputStream);
+                if (inputStream != null) {
+                    inputStream.close();
+                }
             }
             
             if (originalBitmap == null) {
@@ -101,11 +117,24 @@ public class ImageUtils {
             return null;
         }
         try {
-            InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-            if (inputStream != null) {
-                inputStream.close();
+            Bitmap bitmap = null;
+            
+            // Handle different URI schemes
+            if (imageUri.getScheme() != null && imageUri.getScheme().equals("file")) {
+                // File URI - read directly from file path
+                String filePath = imageUri.getPath();
+                if (filePath != null) {
+                    bitmap = BitmapFactory.decodeFile(filePath);
+                }
+            } else {
+                // Content URI - use ContentResolver
+                InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
+                bitmap = BitmapFactory.decodeStream(inputStream);
+                if (inputStream != null) {
+                    inputStream.close();
+                }
             }
+            
             return bitmap;
         } catch (IOException e) {
             e.printStackTrace();

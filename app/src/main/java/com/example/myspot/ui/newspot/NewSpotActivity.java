@@ -7,7 +7,15 @@ import android.graphics.Bitmap;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import androidx.annotation.NonNull;
 import android.provider.MediaStore;
+import androidx.core.content.FileProvider;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -29,7 +37,6 @@ import com.example.myspot.util.ImageUtils;
 import android.widget.EditText;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +44,8 @@ public class NewSpotActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_LOCATION = 1;
     private static final int PICK_IMAGE_REQUEST = 2;
     private static final int PERMISSION_REQUEST_IMAGE = 3;
+    private static final int CAMERA_REQUEST = 4;
+    private static final int PERMISSION_REQUEST_CAMERA = 5;
     
     private TextInputEditText etTitle;
     private EditText etJournal;
@@ -47,6 +56,8 @@ public class NewSpotActivity extends AppCompatActivity {
     private android.widget.ProgressBar progressBar;
     
     private Uri selectedImageUri;
+    private File cameraImageFile;
+    private static final String KEY_CAMERA_IMAGE_PATH = "camera_image_path";
     
     private SpotRepository spotRepository;
     private CategoryRepository categoryRepository;
@@ -71,6 +82,14 @@ public class NewSpotActivity extends AppCompatActivity {
         setupImageUpload();
         setupSaveButton();
         setupBottomNavigation();
+        
+        // Restore camera image file path if activity was recreated
+        if (savedInstanceState != null) {
+            String savedPath = savedInstanceState.getString(KEY_CAMERA_IMAGE_PATH);
+            if (savedPath != null) {
+                cameraImageFile = new File(savedPath);
+            }
+        }
         
         // Initialize default categories if needed
         categoryRepository.initializeDefaultCategories(new SpotRepository.RepositoryCallback<Void>() {
@@ -139,7 +158,22 @@ public class NewSpotActivity extends AppCompatActivity {
     }
     
     private void setupImageUpload() {
-        btnUploadImage.setOnClickListener(v -> requestImagePermission());
+        btnUploadImage.setOnClickListener(v -> showImageSourceDialog());
+    }
+    
+    private void showImageSourceDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Select Image Source")
+            .setItems(new String[]{"Gallery", "Camera"}, (dialog, which) -> {
+                if (which == 0) {
+                    // Gallery
+                    requestImagePermission();
+                } else {
+                    // Camera
+                    requestCameraPermission();
+                }
+            })
+            .show();
     }
     
     private void requestImagePermission() {
@@ -167,30 +201,149 @@ public class NewSpotActivity extends AppCompatActivity {
         }
     }
     
+    private void requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA},
+                    PERMISSION_REQUEST_CAMERA);
+        } else {
+            openCamera();
+        }
+    }
+    
     private void openImagePicker() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         startActivityForResult(intent, PICK_IMAGE_REQUEST);
+    }
+    
+    private void openCamera() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            // Create the File where the photo should go
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                Toast.makeText(this, "Error creating image file", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            // Continue only if the File was successfully created
+            if (photoFile != null) {
+                try {
+                    Uri photoURI = FileProvider.getUriForFile(this,
+                            "com.example.myspot.fileprovider",
+                            photoFile);
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                    takePictureIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    takePictureIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(takePictureIntent, CAMERA_REQUEST);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(this, "Error opening camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else {
+            Toast.makeText(this, "Camera not available", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        
+        // Always use external files directory (Pictures) for FileProvider compatibility
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        if (storageDir == null) {
+            // Fallback to external files root if Pictures directory doesn't exist
+            storageDir = getExternalFilesDir(null);
+            if (storageDir == null) {
+                // Last resort: use internal files directory
+                storageDir = getFilesDir();
+            }
+        }
+        
+        // Ensure directory exists
+        if (storageDir != null && !storageDir.exists()) {
+            storageDir.mkdirs();
+        }
+        
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+        
+        // Save file reference for later use
+        cameraImageFile = image;
+        return image;
     }
     
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            selectedImageUri = data.getData();
-            try {
-                Bitmap bitmap = ImageUtils.loadBitmapFromUri(this, selectedImageUri);
-                if (bitmap != null) {
+        if (resultCode == RESULT_OK) {
+            if (requestCode == PICK_IMAGE_REQUEST && data != null && data.getData() != null) {
+                // Gallery image selected
+                selectedImageUri = data.getData();
+                displaySelectedImage();
+            } else if (requestCode == CAMERA_REQUEST) {
+                // Camera image captured
+                if (cameraImageFile != null && cameraImageFile.exists()) {
+                    try {
+                        selectedImageUri = Uri.fromFile(cameraImageFile);
+                        displaySelectedImage();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Toast.makeText(this, "Error processing captured image", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(this, "Error capturing image", Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else if (resultCode == RESULT_CANCELED && requestCode == CAMERA_REQUEST) {
+            // User cancelled camera, clean up
+            if (cameraImageFile != null && cameraImageFile.exists()) {
+                cameraImageFile.delete();
+            }
+        }
+    }
+    
+    private void displaySelectedImage() {
+        if (selectedImageUri == null) {
+            Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        try {
+            Bitmap bitmap = ImageUtils.loadBitmapFromUri(this, selectedImageUri);
+            if (bitmap != null) {
+                if (ivSpotImage != null) {
                     ivSpotImage.setImageBitmap(bitmap);
                     ivSpotImage.setVisibility(android.view.View.VISIBLE);
-                    btnUploadImage.setText("Change Image");
-                } else {
-                    Toast.makeText(this, "Error loading image", Toast.LENGTH_SHORT).show();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+                if (btnUploadImage != null) {
+                    btnUploadImage.setText("Change Image");
+                }
+            } else {
                 Toast.makeText(this, "Error loading image", Toast.LENGTH_SHORT).show();
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error loading image: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // Save camera image file path to restore after activity recreation
+        if (cameraImageFile != null) {
+            outState.putString(KEY_CAMERA_IMAGE_PATH, cameraImageFile.getAbsolutePath());
         }
     }
     
@@ -202,6 +355,12 @@ public class NewSpotActivity extends AppCompatActivity {
                 openImagePicker();
             } else {
                 Toast.makeText(this, "Image permission is required to upload images", Toast.LENGTH_LONG).show();
+            }
+        } else if (requestCode == PERMISSION_REQUEST_CAMERA) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                openCamera();
+            } else {
+                Toast.makeText(this, "Camera permission is required to take photos", Toast.LENGTH_LONG).show();
             }
         } else if (requestCode == PERMISSION_REQUEST_LOCATION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
