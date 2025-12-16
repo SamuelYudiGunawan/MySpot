@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">MySpot</string>
+    <string name="new_spot">New Spot</string>
+    <string name="timeline">My Timeline</string>
+    <string name="spot_details">Spot Details</string>
+    <string name="home">Home</string>
+    <string name="nav_new">New</string>
+    <string name="all">All</string>
+    <string name="food">Food</string>
+    <string name="cafe">Cafe</string>
+    <string name="museum">Museum</string>
+    <string name="other">Other</string>
+    <string name="add_new">Add New</string>
+    <string name="new_to_old">New To Old</string>
+    <string name="title">Title</string>
+    <string name="category">Category</string>
+    <string name="journal">Journal</string>
+    <string name="preview">Preview</string>
+    <string name="navigate">Navigate</string>
+    <string name="share">Share</string>
+    <string name="label">Label</string>
+    <string name="updated_today">Updated today</string>
+    <string name="updated_yesterday">Updated yesterday</string>
+    <string name="updated_days_ago">Updated %1$d days ago</string>
+    <string name="write_journal_placeholder">Journal your meaningful impression here...</string>
+    <string name="location_permission_required">Location permission is required to save spots</string>
+    <string name="location_permission_denied">Location permission denied. Please enable it in settings.</string>
+    <string name="error_getting_location">Error getting location. Please try again.</string>
+</resources>

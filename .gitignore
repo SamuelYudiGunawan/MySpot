@@ -1,0 +1,49 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.md
+
+# Android Studio / IntelliJ IDEA
+*.class
+*.log
+*.apk
+*.ap_
+*.aab
+*.dex
+*.hprof
+*.keystore
+!debug.keystore
+
+# Gradle
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Android
+*.iml
+.idea/
+*.swp
+*.swo
+*~
+*.orig
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App specific
+app/build/
+app/release/
